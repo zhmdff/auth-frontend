@@ -6,12 +6,14 @@ import { useAuth } from "@/context/authContext";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
   const { setAccessToken } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     setError("");
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
@@ -19,7 +21,7 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
         credentials: "include",
-        redirect: "manual"
+        redirect: "manual",
       });
 
       const text = await res.text();
@@ -30,35 +32,57 @@ export default function LoginPage() {
       router.push("/");
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-return (
-  <form onSubmit={handleSubmit} className="max-w-sm mx-auto mt-10 p-6 bg-white rounded-lg shadow-md space-y-4">
-    <input
-      type="email"
-      placeholder="Email"
-      value={email}
-      onChange={(e) => setEmail(e.target.value)}
-      required
-      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-    />
-    <input
-      type="password"
-      placeholder="Password"
-      value={password}
-      onChange={(e) => setPassword(e.target.value)}
-      required
-      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-    />
-    <button
-      type="submit"
-      className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-colors"
-    >
-      Login
-    </button>
-    {error && <p className="text-red-500 text-sm">{error}</p>}
-  </form>
-);
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="w-full max-w-md">
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8 space-y-6">
+          <div className="text-center">
+            <h1 className="text-2xl font-semibold text-gray-900">Welcome back</h1>
+            <p className="text-sm text-gray-500 mt-1">Sign in to your account</p>
+          </div>
 
+          <input
+            type="email"
+            placeholder="Email address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="w-full px-4 py-3 text-sm rounded-xl border border-gray-300
+                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                       placeholder-gray-400"
+          />
+
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="w-full px-4 py-3 text-sm rounded-xl border border-gray-300
+                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                       placeholder-gray-400"
+          />
+
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full py-3 rounded-xl text-sm font-medium text-white
+     bg-gradient-to-r from-blue-500 to-blue-600
+     transition-all focus:outline-none focus:ring-2 focus:ring-blue-500
+     flex items-center justify-center
+     ${loading ? "opacity-60 cursor-not-allowed" : "hover:from-blue-600 hover:to-blue-700"}`}
+          >
+            {loading ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : "Login"}
+          </button>
+
+          {error && <p className="text-center text-sm text-red-500">{error}</p>}
+        </form>
+      </div>
+    </div>
+  );
 }
