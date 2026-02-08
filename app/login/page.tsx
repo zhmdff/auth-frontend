@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/authContext";
+import { apiFetch } from "@/lib/apiFetch";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -15,23 +16,17 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-        credentials: "include",
-        redirect: "manual",
-      });
 
-      const text = await res.text();
-      const data = text ? JSON.parse(text) : {};
-      if (!res.ok) throw new Error(data.message || "Login failed");
+    try {
+      const data = await apiFetch("/auth/login", {
+        method: "POST",
+        body: { email, password },
+      });
 
       setAccessToken(data.accessToken);
       router.push("/");
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Login failed");
     } finally {
       setLoading(false);
     }
