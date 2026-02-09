@@ -24,10 +24,9 @@ export default function Dashboard() {
     setTimeout(() => setNotification(""), 3000);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     addLog("Logging out...");
-    sessionStorage.removeItem("tokenExpiry");
-    logout();
+    await logout();
     addLog("✓ Logged out successfully");
     router.push("/login");
   };
@@ -44,7 +43,6 @@ export default function Dashboard() {
         onTokenRefresh: (newToken) => {
           const expiry = Date.now() + 15 * 60 * 1000;
           setAccessToken(newToken);
-          sessionStorage.setItem("tokenExpiry", expiry.toString());
           setTokenExpiry(expiry);
           addLog("✓ Token auto-refreshed");
           addLog(`New token: ${newToken.slice(0, 30)}...`);
@@ -90,7 +88,6 @@ export default function Dashboard() {
       if (data.accessToken) {
         const expiry = Date.now() + 15 * 60 * 1000;
         setAccessToken(data.accessToken);
-        sessionStorage.setItem("tokenExpiry", expiry.toString());
         setTokenExpiry(expiry);
         addLog("✓ Token manually refreshed");
         addLog(`New token: ${data.accessToken.slice(0, 30)}...`);
@@ -122,13 +119,8 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("tokenExpiry");
-    if (stored) {
-      setTokenExpiry(parseInt(stored));
-      addLog(`Token expiry loaded: ${new Date(parseInt(stored)).toLocaleTimeString()}`);
-    } else if (accessToken) {
+    if (accessToken) {
       const expiry = Date.now() + 15 * 60 * 1000;
-      sessionStorage.setItem("tokenExpiry", expiry.toString());
       setTokenExpiry(expiry);
       addLog(`Token expiry set: ${new Date(expiry).toLocaleTimeString()}`);
     }
@@ -143,7 +135,6 @@ export default function Dashboard() {
 
       if (remaining <= 0) {
         addLog("⚠ Token expired. Clearing session...");
-        sessionStorage.removeItem("tokenExpiry");
         setAccessToken(null);
         setTokenExpiry(null);
         hasFetched.current = false;

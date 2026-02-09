@@ -1,0 +1,110 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/authContext";
+import { apiFetch } from "@/lib/apiFetch";
+
+export default function RegisterPage() {
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const router = useRouter();
+  const { setAccessToken } = useAuth();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const data = await apiFetch("/auth/register", {
+        method: "POST",
+        body: { fullName, email, password },
+      });
+
+      setAccessToken(data.accessToken);
+      router.push("/");
+    } catch (err: any) {
+      setError(err.message || "Registration failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="w-full max-w-md">
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8 space-y-6">
+          <div className="text-center">
+            <h1 className="text-2xl font-semibold text-gray-900">Create account</h1>
+            <p className="text-sm text-gray-500 mt-1">Join us today</p>
+          </div>
+
+          <div className="space-y-4">
+            <input
+              type="text"
+              placeholder="Full Name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+              className="w-full px-4 py-3 text-sm rounded-xl border border-gray-300
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                         placeholder-gray-400"
+            />
+
+            <input
+              type="email"
+              placeholder="Email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full px-4 py-3 text-sm rounded-xl border border-gray-300
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                         placeholder-gray-400"
+            />
+
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full px-4 py-3 text-sm rounded-xl border border-gray-300
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                         placeholder-gray-400"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full py-3 rounded-xl text-sm font-medium text-white
+     bg-gradient-to-r from-blue-500 to-blue-600
+     transition-all focus:outline-none focus:ring-2 focus:ring-blue-500
+     flex items-center justify-center
+     ${loading ? "opacity-60 cursor-not-allowed" : "hover:from-blue-600 hover:to-blue-700"}`}
+          >
+            {loading ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : "Register"}
+          </button>
+
+          {error && <p className="text-center text-sm text-red-500">{error}</p>}
+
+          <div className="text-center">
+            <p className="text-sm text-gray-500">
+              Already have an account?{" "}
+              <button
+                type="button"
+                onClick={() => router.push("/login")}
+                className="font-medium text-blue-600 hover:text-blue-500"
+              >
+                Sign in
+              </button>
+            </p>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

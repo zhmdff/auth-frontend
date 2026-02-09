@@ -8,7 +8,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   setUser: () => {},
   checkAuth: async () => false,
-  logout: () => {},
+  logout: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -18,19 +18,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const init = async () => {
-      const stored = sessionStorage.getItem("accessToken");
-
-      if (stored) {
-        setAccessToken(stored);
-        const isValid = await fetchUserData(stored);
-
-        if (!isValid) {
-          await checkAuth();
-        }
-      } else {
-        await checkAuth();
-      }
-
+      // Always try to refresh token on load/refresh
+      await checkAuth();
       setIsLoaded(true);
     };
     init();
@@ -59,13 +48,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const handleSetToken = (token: string | null) => {
     setAccessToken(token);
     if (token) {
-      const expiryTime = Date.now() + 15 * 60 * 1000;
-      sessionStorage.setItem("accessToken", token);
-      sessionStorage.setItem("tokenExpiry", expiryTime.toString());
       fetchUserData(token);
     } else {
-      sessionStorage.removeItem("accessToken");
-      sessionStorage.removeItem("tokenExpiry");
       setUser(null);
     }
   };
@@ -86,9 +70,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const logout = () => {
-    handleSetToken(null);
-    setUser(null);
+  const logout = async () => {
+    try {
+      // Call backend logout
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+    } catch (err) {
+      console.error("Logout failed:", err);
+    } finally {
+      handleSetToken(null);
+      setUser(null);
+    }
   };
 
   if (!isLoaded) return null;
