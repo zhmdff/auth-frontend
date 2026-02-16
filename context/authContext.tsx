@@ -1,12 +1,14 @@
 "use client";
 import { createContext, useContext, useState, useEffect } from "react";
-import type { User, AuthContextType } from "@/types/auth";
+import type { User, AuthContextType, AuthResult } from "@/types/auth";
+import { apiFetch } from "@/lib/apiFetch";
 
 const AuthContext = createContext<AuthContextType>({
   accessToken: null,
   setAccessToken: () => {},
   user: null,
   setUser: () => {},
+  isLoading: true,
   checkAuth: async () => false,
   logout: async () => {},
 });
@@ -14,66 +16,50 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const init = async () => {
-      // Always try to refresh token on load/refresh
       await checkAuth();
-      setIsLoaded(true);
+      setIsLoading(false);
     };
     init();
   }, []);
 
   const checkAuth = async (): Promise<boolean> => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_AUTH_URL}/refresh`, {
         method: "POST",
         credentials: "include",
       });
 
-      if (!res.ok) return false;
+      if (!res.ok) {
+        handleSetToken(null, null);
+        return false;
+      }
 
-      const data = await res.json();
-      if (data.accessToken) {
-        handleSetToken(data.accessToken);
+      const data: AuthResult = await res.json();
+      if (data.success && data.accessToken && data.user) {
+        handleSetToken(data.accessToken, data.user);
         return true;
       }
+      
+      handleSetToken(null, null);
       return false;
     } catch {
+      handleSetToken(null, null);
       return false;
     }
   };
 
-  const handleSetToken = (token: string | null) => {
+  const handleSetToken = (token: string | null, userData: User | null) => {
     setAccessToken(token);
-    if (token) {
-      fetchUserData(token);
-    } else {
-      setUser(null);
-    }
-  };
-
-  const fetchUserData = async (token: string): Promise<boolean> => {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/dashboard`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUser({ email: data.email, fullName: data.fullName });
-        return true;
-      }
-      return false;
-    } catch {
-      return false;
-    }
+    setUser(userData);
   };
 
   const logout = async () => {
     try {
-      // Call backend logout
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
+      await fetch(`${process.env.NEXT_PUBLIC_AUTH_URL}/logout`, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -83,14 +69,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (err) {
       console.error("Logout failed:", err);
     } finally {
-      handleSetToken(null);
-      setUser(null);
+      handleSetToken(null, null);
     }
   };
 
-  if (!isLoaded) return null;
-
-  return <AuthContext.Provider value={{ accessToken, setAccessToken: handleSetToken, user, setUser, checkAuth, logout }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider 
+      value={{ 
+        accessToken, 
+        setAccessToken: (token) => handleSetToken(token, user), 
+        user, 
+        setUser, 
+        isLoading,
+        checkAuth, 
+        logout 
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => useContext(AuthContext);

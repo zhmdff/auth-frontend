@@ -1,96 +1,130 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/authContext";
-import { apiFetch } from "@/lib/apiFetch";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { motion } from "framer-motion";
+import { LogIn, Github, Mail } from "lucide-react";
+import Link from "next/link";
+import { toast } from "sonner";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { setAccessToken } = useAuth();
+  const { setAccessToken, setUser } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError("");
+    setIsLoading(true);
 
     try {
-      const data = await apiFetch("/auth/login", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_AUTH_URL}/login`, {
         method: "POST",
-        body: { email, password },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ identifier, password }),
       });
 
-      setAccessToken(data.accessToken);
-      router.push("/");
-    } catch (err: any) {
-      setError(err.message || "Login failed");
+      const data = await res.json();
+
+      if (data.success) {
+        setAccessToken(data.accessToken);
+        setUser(data.user);
+        toast.success("Welcome back!", {
+          description: `Logged in as ${data.user.fullName || data.user.identifier}`,
+        });
+        router.push("/");
+      } else {
+        toast.error("Login failed", {
+          description: data.errorMessage || "Invalid credentials",
+        });
+      }
+    } catch (err) {
+      toast.error("Connection error", {
+        description: "Could not reach the authentication server.",
+      });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md">
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8 space-y-6">
-          <div className="text-center">
-            <h1 className="text-2xl font-semibold text-gray-900">Welcome back</h1>
-            <p className="text-sm text-gray-500 mt-1">Sign in to your account</p>
+    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-mesh p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-md"
+      >
+        <div className="glass rounded-3xl p-8 space-y-8 auth-card-hover">
+          <div className="text-center space-y-2">
+            <h1 className="text-3xl font-bold tracking-tight text-gradient">Welcome Back</h1>
+            <p className="text-foreground/50">Enter your credentials to access your account</p>
           </div>
 
-          <input
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="w-full px-4 py-3 text-sm rounded-xl border border-gray-300
-                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                       placeholder-gray-400"
-          />
+          <form onSubmit={handleLogin} className="space-y-5">
+            <Input
+              label="Username or Email"
+              placeholder="john@example.com"
+              type="text"
+              required
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+            />
+            <div className="space-y-1">
+              <Input
+                label="Password"
+                placeholder="••••••••"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <div className="flex justify-end">
+                <Link href="#" className="text-xs text-primary hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
+            </div>
 
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="w-full px-4 py-3 text-sm rounded-xl border border-gray-300
-                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                       placeholder-gray-400"
-          />
+            <Button type="submit" className="w-full py-6" isLoading={isLoading}>
+              <LogIn className="w-4 h-4 mr-2" />
+              Sign In
+            </Button>
+          </form>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full py-3 rounded-xl text-sm font-medium text-white
-     bg-gradient-to-r from-blue-500 to-blue-600
-     transition-all focus:outline-none focus:ring-2 focus:ring-blue-500
-     flex items-center justify-center
-     ${loading ? "opacity-60 cursor-not-allowed" : "hover:from-blue-600 hover:to-blue-700"}`}
-          >
-            {loading ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : "Login"}
-          </button>
-
-          {error && <p className="text-center text-sm text-red-500">{error}</p>}
-
-          <div className="text-center">
-            <p className="text-sm text-gray-500">
-              Don't have an account?{" "}
-              <button
-                type="button"
-                onClick={() => router.push("/register")}
-                className="font-medium text-blue-600 hover:text-blue-500"
-              >
-                Register now
-              </button>
-            </p>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-glass-border"></span>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-transparent px-2 text-foreground/30">Or continue with</span>
+            </div>
           </div>
-        </form>
-      </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Button variant="outline" className="py-5" type="button">
+              <Github className="w-4 h-4 mr-2" />
+              GitHub
+            </Button>
+            <Button variant="outline" className="py-5" type="button">
+              <Mail className="w-4 h-4 mr-2" />
+              Google
+            </Button>
+          </div>
+
+          <p className="text-center text-sm text-foreground/50">
+            Don&apos;t have an account?{" "}
+            <Link href="/register" className="text-primary hover:underline font-medium">
+              Create account
+            </Link>
+          </p>
+        </div>
+      </motion.div>
     </div>
   );
 }

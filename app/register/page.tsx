@@ -1,110 +1,133 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/authContext";
-import { apiFetch } from "@/lib/apiFetch";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { motion } from "framer-motion";
+import { UserPlus } from "lucide-react";
+import Link from "next/link";
+import { toast } from "sonner";
 
 export default function RegisterPage() {
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [formData, setFormData] = useState({
+    identifier: "",
+    fullName: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { setAccessToken } = useAuth();
+  const { setAccessToken, setUser } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError("");
+    if (formData.password !== formData.confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
-      const data = await apiFetch("/auth/register", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_AUTH_URL}/register`, {
         method: "POST",
-        body: { fullName, email, password },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          identifier: formData.identifier,
+          fullName: formData.fullName,
+          password: formData.password,
+          role: "User",
+          adminLevel: 0
+        }),
       });
 
-      setAccessToken(data.accessToken);
-      router.push("/");
-    } catch (err: any) {
-      setError(err.message || "Registration failed");
+      const data = await res.json();
+
+      if (data.success) {
+        setAccessToken(data.accessToken);
+        setUser(data.user);
+        toast.success("Account created!", {
+          description: "Welcome to our platform.",
+        });
+        router.push("/");
+      } else {
+        toast.error("Registration failed", {
+          description: data.errorMessage || "Please check your details",
+        });
+      }
+    } catch (err) {
+      toast.error("Connection error");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md">
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8 space-y-6">
-          <div className="text-center">
-            <h1 className="text-2xl font-semibold text-gray-900">Create account</h1>
-            <p className="text-sm text-gray-500 mt-1">Join us today</p>
+    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-mesh p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4 }}
+        className="w-full max-w-lg"
+      >
+        <div className="glass rounded-3xl p-8 space-y-8 auth-card-hover">
+          <div className="text-center space-y-2">
+            <h1 className="text-3xl font-bold tracking-tight text-gradient">Create Account</h1>
+            <p className="text-foreground/50">Join our community and start your journey</p>
           </div>
 
-          <div className="space-y-4">
-            <input
-              type="text"
-              placeholder="Full Name"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              required
-              className="w-full px-4 py-3 text-sm rounded-xl border border-gray-300
-                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                         placeholder-gray-400"
-            />
-
-            <input
-              type="email"
-              placeholder="Email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-3 text-sm rounded-xl border border-gray-300
-                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                         placeholder-gray-400"
-            />
-
-            <input
+          <form onSubmit={handleRegister} className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="md:col-span-2">
+              <Input
+                label="Identifier (Email or Username)"
+                placeholder="johndoe"
+                required
+                value={formData.identifier}
+                onChange={(e) => setFormData({ ...formData, identifier: e.target.value })}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Input
+                label="Full Name (Optional)"
+                placeholder="John Doe"
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+              />
+            </div>
+            <Input
+              label="Password"
               type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
               required
-              className="w-full px-4 py-3 text-sm rounded-xl border border-gray-300
-                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                         placeholder-gray-400"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             />
-          </div>
+            <Input
+              label="Confirm Password"
+              type="password"
+              placeholder="••••••••"
+              required
+              value={formData.confirmPassword}
+              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+            />
 
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full py-3 rounded-xl text-sm font-medium text-white
-     bg-gradient-to-r from-blue-500 to-blue-600
-     transition-all focus:outline-none focus:ring-2 focus:ring-blue-500
-     flex items-center justify-center
-     ${loading ? "opacity-60 cursor-not-allowed" : "hover:from-blue-600 hover:to-blue-700"}`}
-          >
-            {loading ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" /> : "Register"}
-          </button>
+            <Button type="submit" className="md:col-span-2 py-6 mt-4" isLoading={isLoading}>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Create Account
+            </Button>
+          </form>
 
-          {error && <p className="text-center text-sm text-red-500">{error}</p>}
-
-          <div className="text-center">
-            <p className="text-sm text-gray-500">
-              Already have an account?{" "}
-              <button
-                type="button"
-                onClick={() => router.push("/login")}
-                className="font-medium text-blue-600 hover:text-blue-500"
-              >
-                Sign in
-              </button>
-            </p>
-          </div>
-        </form>
-      </div>
+          <p className="text-center text-sm text-foreground/50">
+            Already have an account?{" "}
+            <Link href="/login" className="text-primary hover:underline font-medium">
+              Sign in instead
+            </Link>
+          </p>
+        </div>
+      </motion.div>
     </div>
   );
 }

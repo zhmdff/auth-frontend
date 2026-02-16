@@ -1,3 +1,10 @@
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
 type FetchOptions = {
   method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: any;
@@ -30,29 +37,47 @@ export async function apiFetch(endpoint: string, options: FetchOptions = {}) {
   const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, config);
 
   if (res.status === 401 && token && onTokenRefresh) {
-    const refreshRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, {
-      method: "POST",
-      credentials: "include",
-    });
-
-    if (refreshRes.ok) {
-      const { accessToken } = await refreshRes.json();
-      onTokenRefresh(accessToken);
-
-      headers["Authorization"] = `Bearer ${accessToken}`;
-      const retryRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
-        ...config,
-        headers,
+    // Attempt to refresh
+    try {
+      const refreshRes = await fetch(`${process.env.NEXT_PUBLIC_AUTH_URL}/refresh`, {
+        method: "POST",
+        credentials: "include",
       });
 
-      if (!retryRes.ok) throw new Error(await retryRes.text());
-      return retryRes.json();
-    } else {
+      if (refreshRes.ok) {
+        const data = await refreshRes.json();
+        const nextToken = data.accessToken;
+        onTokenRefresh(nextToken);
+
+        headers["Authorization"] = `Bearer ${nextToken}`;
+        const retryRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
+          ...config,
+          headers,
+        });
+
+        if (!retryRes.ok) throw new Error(await retryRes.text());
+        return retryRes.json();
+      } else {
+        onAuthFail?.();
+        throw new Error("Session expired");
+      }
+    } catch (err) {
       onAuthFail?.();
-      throw new Error("Session expired");
+      throw err;
     }
   }
 
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const errorText = await res.text();
+    let errorMessage = "An error occurred";
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.message || errorJson || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+
   return res.json();
 }
